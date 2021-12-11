@@ -30,17 +30,36 @@ my-job-27320402   1/1           7s         52s
 
 ## install
 
-WIP
+create TLS Secret.  
+ServerName should be `<service-name>.<namespace>.svc` : https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#service-reference  
+
+```bash
+# create private key
+openssl genrsa -out tls.key
+
+# create self-signed certificate
+openssl req -x509 -key tls.key -out tls.crt -days 3650 -addext 'subjectAltName = DNS:cronjob-name-labels-admission-webhook.default.svc'
+# Common Name (e.g. server FQDN or YOUR name) []:cronjob-name-labels-admission-webhook.default.svc
+
+# create TLS secret
+kubectl create secret tls cronjob-name-labels-admission-webhook-tls-secret --cert=tls.crt --key=tls.key
+```
+
+create Secret, Deployment, Service, and MutatingWebhookConfiguration at `default` namespace.  
+
+```bash
+# apply manifest
+curl https://raw.githubusercontent.com/uzimihsr/cronjob-name-labels-admission-webhook/main/manifests/manifest.yaml \
+  | sed "s/CA_BUNDLE/$(kubectl get secret cronjob-name-labels-admission-webhook-tls-secret -o jsonpath='{.data.tls\.crt}')/g" \
+  | kubectl apply -f -
+```
 
 ## develop
 
-create private key and self-signed TLS certificate.  
-reference : https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#service-reference  
-```bash
-openssl genrsa -out tls.key
+create secret.  
 
-openssl req -x509 -key tls.key -out tls.crt -days 3650 -addext 'subjectAltName = DNS:cronjob-name-labels-admission-webhook.default.svc'
-# Common Name (e.g. server FQDN or YOUR name) []:cronjob-name-labels-admission-webhook.default.svc
+```bash
+kubectl create secret tls cronjob-name-labels-admission-webhook-tls-secret --cert=tls.crt --key=tls.key
 ```
 
 build the image and load it to kind node.  
@@ -53,9 +72,17 @@ kind load docker-image cronjob-name-labels-admission-webhook:develop
 create Secret, Deployment, Service, and MutatingWebhookConfiguration.  
 
 ```bash
-kubectl create secret tls cronjob-name-labels-admission-webhook-tls-secret --cert=tls.crt --key=tls.key
 kubectl apply -f manifests/deployment.yaml
 kubectl wait --for=condition=ready pod --selector=app=cronjob-name-labels-admission-webhook --timeout=90s
 kubectl apply -f manifests/service.yaml
 sed "s/CA_BUNDLE/$(kubectl get secret cronjob-name-labels-admission-webhook-tls-secret -o jsonpath='{.data.tls\.crt}')/g" manifests/mutatingwebhookconfiguration.yaml | kubectl apply -f -
+```
+
+if you want to delete it :(  
+
+```bash
+kubectl delete mutatingwebhookconfiguration cronjob-name-labels-admission-webhook.default.svc
+kubectl delete service cronjob-name-labels-admission-webhook
+kubectl delete deployment cronjob-name-labels-admission-webhook
+kubectl delete secret cronjob-name-labels-admission-webhook-tls-secret
 ```
