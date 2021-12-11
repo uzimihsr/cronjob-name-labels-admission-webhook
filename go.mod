@@ -1,4 +1,4 @@
-module github.com/uzimihsr/cronjob-labels-admission-webhook
+module github.com/uzimihsr/cronjob-name-labels-admission-webhook
 
 go 1.17
 

@@ -1,9 +1,9 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: "cronjob-labels-admission-webhook.default.svc"
+  name: "cronjob-name-labels-admission-webhook.default.svc"
 webhooks:
-- name: "cronjob-labels-admission-webhook.default.svc"
+- name: "cronjob-name-labels-admission-webhook.default.svc"
   rules:
   - apiGroups:   ["batch"]
     apiVersions: ["v1"]
@@ -13,7 +13,7 @@ webhooks:
   clientConfig:
     service:
       namespace: "default"
-      name: "cronjob-labels-admission-webhook"
+      name: "cronjob-name-labels-admission-webhook"
       path: "/label-job-owned-by-cronjob"
       port: 443
     # Replace CA_BUNDLE with "$(kubectl get secret tls-secret -o jsonpath='{.data.tls\.crt}')"
