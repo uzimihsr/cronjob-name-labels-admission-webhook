@@ -16,14 +16,24 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/uzimihsr/cronjob-labels-admission-webhook/webhook"
+	v1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 )
 
 // var cfgFile string
-var port int
+var (
+	certFile string
+	keyFile  string
+	port     int
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -49,50 +59,71 @@ func Execute() {
 }
 
 func init() {
-	// cobra.OnInitialize(initConfig)
-
-	// // Here you will define your flags and configuration settings.
-	// // Cobra supports persistent flags, which, if defined here,
-	// // will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cronjob-labels-admission-webhook.yaml)")
-
-	// // Cobra also supports local flags, which will only run
-	// // when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	rootCmd.Flags().IntVarP(&port, "port", "p", 80, "the port the server listens on")
+	// parse flags
+	rootCmd.Flags().StringVar(&certFile, "tls-cert-file", "", "File containing the default x509 Certificate for HTTPS. (CA cert, if any, concatenated after server cert).")
+	rootCmd.Flags().StringVar(&keyFile, "tls-private-key-file", "", "File containing the default x509 private key matching --tls-cert-file.")
+	rootCmd.Flags().IntVar(&port, "port", 443, "port the server listens on")
 }
 
-// initConfig reads in config file and ENV variables if set.
-// func initConfig() {
-// 	if cfgFile != "" {
-// 		// Use config file from the flag.
-// 		viper.SetConfigFile(cfgFile)
-// 	} else {
-// 		// Find home directory.
-// 		home, err := os.UserHomeDir()
-// 		cobra.CheckErr(err)
+// serve handles the http portion of a request prior to handing to an admit function
+func serve(w http.ResponseWriter, r *http.Request, admitFunc func(v1.AdmissionReview) *v1.AdmissionResponse) {
 
-// 		// Search config in home directory with name ".cronjob-labels-admission-webhook" (without extension).
-// 		viper.AddConfigPath(home)
-// 		viper.SetConfigType("yaml")
-// 		viper.SetConfigName(".cronjob-labels-admission-webhook")
-// 	}
+	// load request body
+	var body []byte
+	if r.Body != nil {
+		if data, err := ioutil.ReadAll(r.Body); err == nil {
+			body = data
+		}
+	}
 
-// 	viper.AutomaticEnv() // read in environment variables that match
+	// verify the content type is accurate
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		klog.Errorf("contentType=%s, expect application/json", contentType)
+		http.Error(w, fmt.Sprintf("contentType=%s, expect application/json", contentType), http.StatusUnsupportedMediaType)
+		return
+	}
 
-// 	// If a config file is found, read it in.
-// 	if err := viper.ReadInConfig(); err == nil {
-// 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-// 	}
-// }
+	klog.Info(fmt.Sprintf("handling request: %s", body))
+
+	reqObj := &v1.AdmissionReview{}
+	err := json.Unmarshal(body, reqObj)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var responseObj runtime.Object
+	responseAdmissionReview := &v1.AdmissionReview{}
+	responseAdmissionReview.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("AdmissionReview"))
+	responseAdmissionReview.Response = admitFunc(*reqObj)
+	responseAdmissionReview.Response.UID = reqObj.Request.UID
+	responseObj = responseAdmissionReview
+
+	respBytes, err := json.Marshal(responseObj)
+	if err != nil {
+		klog.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	klog.Info(fmt.Sprintf("sending response: %s", respBytes))
+
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(respBytes); err != nil {
+		klog.Error(err)
+	}
+}
+
+func serveLabelJobOwnedByCronJob(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, webhook.LabelJobOwnedByCronJob)
+}
 
 func main(cmd *cobra.Command, args []string) {
+	http.HandleFunc("/label-job-owned-by-cronjob", serveLabelJobOwnedByCronJob)
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 	}
-	err := server.ListenAndServe()
+	err := server.ListenAndServeTLS(certFile, keyFile)
 	if err != nil {
 		panic(err)
 	}
