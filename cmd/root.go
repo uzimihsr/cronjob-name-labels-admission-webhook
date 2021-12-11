@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
-	"github.com/uzimihsr/cronjob-labels-admission-webhook/webhook"
+	"github.com/uzimihsr/cronjob-name-labels-admission-webhook/webhook"
 	v1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
@@ -22,7 +22,7 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "cronjob-labels-admission-webhook",
+	Use:   "cronjob-name-labels-admission-webhook",
 	Short: "Kubernetes MutatingAdmissionWebhook to label Jobs owned by CronJob with the value of CronJob name.",
 	Long:  `Kubernetes MutatingAdmissionWebhook to label Jobs owned by CronJob with the value of CronJob name.`,
 	Args:  cobra.MaximumNArgs(0),
