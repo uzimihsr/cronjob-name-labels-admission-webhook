@@ -1,18 +1,3 @@
-/*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package cmd
 
 import (
@@ -28,7 +13,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// var cfgFile string
+// flags
 var (
 	certFile string
 	keyFile  string
@@ -38,18 +23,10 @@ var (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "cronjob-labels-admission-webhook",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
-	Args: cobra.MaximumNArgs(0),
-	Run:  main,
+	Short: "Kubernetes MutatingAdmissionWebhook to label Jobs owned by CronJob with the value of CronJob name.",
+	Long:  `Kubernetes MutatingAdmissionWebhook to label Jobs owned by CronJob with the value of CronJob name.`,
+	Args:  cobra.MaximumNArgs(0),
+	Run:   main,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -60,15 +37,15 @@ func Execute() {
 
 func init() {
 	// parse flags
-	rootCmd.Flags().StringVar(&certFile, "tls-cert-file", "", "File containing the default x509 Certificate for HTTPS. (CA cert, if any, concatenated after server cert).")
-	rootCmd.Flags().StringVar(&keyFile, "tls-private-key-file", "", "File containing the default x509 private key matching --tls-cert-file.")
+	rootCmd.Flags().StringVar(&certFile, "tls-cert-file", "/tls/tls.crt", "File containing the default x509 Certificate for HTTPS. (CA cert, if any, concatenated after server cert).")
+	rootCmd.Flags().StringVar(&keyFile, "tls-private-key-file", "/tls/tls.key", "File containing the default x509 private key matching --tls-cert-file.")
 	rootCmd.Flags().IntVar(&port, "port", 443, "port the server listens on")
 }
 
 // serve handles the http portion of a request prior to handing to an admit function
 func serve(w http.ResponseWriter, r *http.Request, admitFunc func(v1.AdmissionReview) *v1.AdmissionResponse) {
 
-	// load request body
+	// load the request body
 	var body []byte
 	if r.Body != nil {
 		if data, err := ioutil.ReadAll(r.Body); err == nil {
@@ -86,20 +63,23 @@ func serve(w http.ResponseWriter, r *http.Request, admitFunc func(v1.AdmissionRe
 
 	klog.Info(fmt.Sprintf("handling request: %s", body))
 
-	reqObj := &v1.AdmissionReview{}
-	err := json.Unmarshal(body, reqObj)
+	// parse the request body
+	requestObj := &v1.AdmissionReview{}
+	err := json.Unmarshal(body, requestObj)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// call admitFunc
 	var responseObj runtime.Object
 	responseAdmissionReview := &v1.AdmissionReview{}
 	responseAdmissionReview.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("AdmissionReview"))
-	responseAdmissionReview.Response = admitFunc(*reqObj)
-	responseAdmissionReview.Response.UID = reqObj.Request.UID
+	responseAdmissionReview.Response = admitFunc(*requestObj)
+	responseAdmissionReview.Response.UID = requestObj.Request.UID
 	responseObj = responseAdmissionReview
 
+	// send response
 	respBytes, err := json.Marshal(responseObj)
 	if err != nil {
 		klog.Error(err)
@@ -107,7 +87,6 @@ func serve(w http.ResponseWriter, r *http.Request, admitFunc func(v1.AdmissionRe
 		return
 	}
 	klog.Info(fmt.Sprintf("sending response: %s", respBytes))
-
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(respBytes); err != nil {
 		klog.Error(err)
