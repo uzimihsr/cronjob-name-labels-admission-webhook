@@ -1,6 +1,6 @@
 # cronjob-name-labels-admission-webhook
 
-Kubernetes [MutatingAdmissionWebhook](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#mutatingadmissionwebhook) which adds a label to Jobs whose value is the name of the owner CronJob.  
+Kubernetes [MutatingAdmissionWebhook](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#mutatingadmissionwebhook) which labels Jobs with the name of the owner CronJob.
 
 ```bash
 $ kubectl get cronjobs
