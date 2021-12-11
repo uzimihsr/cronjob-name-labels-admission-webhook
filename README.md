@@ -62,7 +62,7 @@ create secret.
 kubectl create secret tls cronjob-name-labels-admission-webhook-tls-secret --cert=tls.crt --key=tls.key
 ```
 
-build the image and load it to kind node.  
+build the image and load it to [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster) node.  
 
 ```bash
 docker image build -t cronjob-name-labels-admission-webhook:develop .
