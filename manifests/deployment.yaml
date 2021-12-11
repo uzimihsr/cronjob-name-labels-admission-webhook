@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cronjob-labels-admission-webhook
+  name: cronjob-labels-admission-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cronjob-labels-admission-webhook
+  template:
+    metadata:
+      labels:
+        app: cronjob-labels-admission-webhook
+    spec:
+      volumes:
+      - name: tls
+        secret:
+          secretName: tls-secret
+      containers:
+      - image: cronjob-labels-admission-webhook:develop
+        name: cronjob-labels-admission-webhook
+        command: ["/cronjob-labels-admission-webhook"]
+        args: 
+          [
+            "--port=443",
+            "--tls-cert-file=/tls/tls.crt",
+            "--tls-private-key-file=/tls/tls.key",
+          ]
+        volumeMounts:
+        - name: tls
+          mountPath: /tls 
