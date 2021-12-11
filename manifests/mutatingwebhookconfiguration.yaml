@@ -4,6 +4,7 @@ metadata:
   name: "cronjob-name-labels-admission-webhook.default.svc"
 webhooks:
 - name: "cronjob-name-labels-admission-webhook.default.svc"
+  failurePolicy: Ignore
   rules:
   - apiGroups:   ["batch"]
     apiVersions: ["v1"]
