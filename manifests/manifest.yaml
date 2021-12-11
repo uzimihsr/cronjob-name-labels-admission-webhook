@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cronjob-name-labels-admission-webhook
+  name: cronjob-name-labels-admission-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cronjob-name-labels-admission-webhook
+  template:
+    metadata:
+      labels:
+        app: cronjob-name-labels-admission-webhook
+    spec:
+      volumes:
+      - name: tls
+        secret:
+          secretName: cronjob-name-labels-admission-webhook-tls-secret
+      containers:
+      - image: ghcr.io/uzimihsr/cronjob-name-labels-admission-webhook:v0.0.1
+        name: cronjob-name-labels-admission-webhook
+        command: ["/cronjob-name-labels-admission-webhook"]
+        args: 
+          [
+            "--port=443",
+            "--tls-cert-file=/tls/tls.crt",
+            "--tls-private-key-file=/tls/tls.key",
+          ]
+        volumeMounts:
+        - name: tls
+          mountPath: /tls 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: cronjob-name-labels-admission-webhook
+  name: cronjob-name-labels-admission-webhook
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    app: cronjob-name-labels-admission-webhook
+  type: ClusterIP
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: "cronjob-name-labels-admission-webhook.default.svc"
+webhooks:
+- name: "cronjob-name-labels-admission-webhook.default.svc"
+  failurePolicy: Ignore
+  rules:
+  - apiGroups:   ["batch"]
+    apiVersions: ["v1"]
+    operations:  ["CREATE"]
+    resources:   ["jobs"]
+    scope:       "Namespaced"
+  clientConfig:
+    service:
+      namespace: "default"
+      name: "cronjob-name-labels-admission-webhook"
+      path: "/label-job-owned-by-cronjob"
+      port: 443
+    # Replace CA_BUNDLE with "$(kubectl get secret tls-secret -o jsonpath='{.data.tls\.crt}')"
+    caBundle: "CA_BUNDLE"
+  admissionReviewVersions: ["v1", "v1beta1"]
+  sideEffects: None
+  timeoutSeconds: 5
