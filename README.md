@@ -28,6 +28,9 @@ my-job-27320401   1/1           4s         112s
 my-job-27320402   1/1           7s         52s
 ```
 
+works with: 
+- Kubernetes v1.21.1
+
 ## install
 
 create TLS Secret.  
