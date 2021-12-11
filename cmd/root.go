@@ -23,8 +23,8 @@ var (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "cronjob-name-labels-admission-webhook",
-	Short: "Kubernetes MutatingAdmissionWebhook to label Jobs owned by CronJob with the value of CronJob name.",
-	Long:  `Kubernetes MutatingAdmissionWebhook to label Jobs owned by CronJob with the value of CronJob name.`,
+	Short: "Kubernetes MutatingAdmissionWebhook which labels Jobs with the name of the owner CronJob.",
+	Long:  `Kubernetes MutatingAdmissionWebhook which labels Jobs with the name of the owner CronJob.`,
 	Args:  cobra.MaximumNArgs(0),
 	Run:   main,
 }
